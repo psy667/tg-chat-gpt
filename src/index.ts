@@ -34,51 +34,65 @@ tg.tg.command("topup", async (ctx) => {
     ctx.reply(`Баланс ${username} пополнен на ${amount} токенов. Теперь у него ${user!!.balance} токенов`);
 });
 tg.onCommand("balance", (ctx) => {
-    const user = userRepository.getUser(ctx.message.from.id)!!;
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
     return `Ваш баланс: ${user.balance}`
 });
 
 tg.onCommand("toxic", (ctx) => {
-    const user = userRepository.getUser(ctx.message.from.id)!!;
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
     user.selectedPersonality = "toxic";
     user.messages = [];
-    return "Теперь вы общаетесь с токсичным ботом";
+    return "Теперь вы общаетесь с токсичным ботом. Контекст диалога обнулен. Внимание! Бот может быть неадекватным и нецензурным.";
 });
 
 tg.onCommand("assistant", (ctx) => {
-    const user = userRepository.getUser(ctx.message.from.id)!!;
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
     user.selectedPersonality = "assistant";
     user.messages = [];
-    return "Теперь вы общаетесь с помощником";
+    return "Теперь вы общаетесь с помощником. Контекст диалога обнулен.";
 });
 
 tg.onCommand("translator", (ctx) => {
-    const user = userRepository.getUser(ctx.message.from.id)!!;
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
     user.selectedPersonality = "translator";
     user.messages = [];
-    return "Теперь вы общаетесь с переводчиком";
+    return "Теперь вы общаетесь с переводчиком.";
 });
 
 tg.onCommand("dnd", (ctx) => {
-    const user = userRepository.getUser(ctx.message.from.id)!!;
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
     user.selectedPersonality = "dnd";
     user.messages = [];
-    return "Теперь вы общаетесь с ботом для игры в ДнД";
+    return "Теперь вы общаетесь с ботом для игры в ДнД. Контекст диалога обнулен.";
 });
 
 tg.onCommand("therapist", (ctx) => {
-    const user = userRepository.getUser(ctx.message.from.id)!!;
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
     user.selectedPersonality = "therapist";
     user.messages = [];
-    return "Теперь вы общаетесь с ботом-психотерапевтом";
+    return "Теперь вы общаетесь с ботом-психотерапевтом. Контекст диалога обнулен.";
+});
+
+tg.onCommand("reset", (ctx) => {
+    const user = userRepository.getOrCreateUser(ctx.message.from.id, ctx.message.from.username);
+    user.messages = [];
+    return "Контекст диалога обнулен";
+});
+
+tg.onCommand("pay", (ctx) => {
+    return "Чтобы пополнить баланс напишите мне в лс @psy667, указав сумму пополнения. Цена 100,000 токенов - 50 рублей. 1 токен - символ";
+});
+
+tg.onCommand("help", (ctx) => {
+    return "По всем вопросам можете обращаться ко мне в личные сообщения @psy667"
 });
 
 tg.onMessage(async (msg) => {
     const {text, user_id, username} = msg;
     // const isRussian = new RegExp(/.*[а-яА-ЯёЁ]{1}.*/).test(text);
 
-    let user = await userRepository.getUser(user_id);
-    
+    let user = await userRepository.getOrCreateUser(user_id, username);
+
     if(!user) {
         user = userRepository.addUser(new User(user_id, username));
     }
@@ -90,8 +104,10 @@ tg.onMessage(async (msg) => {
     if(user.balance < 0) {
         return "У вас закончились токены. Пополните баланс";
     }
-    
-    const lastMessages = user.messages.slice(-14).map((msg) => ({role: msg.role, content: msg.text}));
+    const currentTimestamp = Date.now();
+    const hourAgo = currentTimestamp - 1000 * 60 * 60;
+
+    const lastMessages = user.messages.slice(-7).filter(it => it.timestamp > hourAgo).map((msg) => ({role: msg.role, content: msg.text}));
 
     console.log("CREATING ANSWER")
     const {response, usage} = await openai.createAnswer(user.selectedPersonality, lastMessages, msg.text);
