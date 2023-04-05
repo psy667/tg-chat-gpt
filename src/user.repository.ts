@@ -62,4 +62,12 @@ export class UserRepository {
         user.messages.push(promptMessage, responseMessage);
         this.saveData();
     }
+
+    getOrCreateUser(id: number, username?: string) {
+        let user = this.getUser(id);
+        if(!user) {
+            user = this.addUser(new User(id, username));
+        }
+        return user;
+    }
 }
